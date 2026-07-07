@@ -8,7 +8,9 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat run test_simulation.js"
+    "test": "hardhat run test_simulation.js",
+    "deploy:local": "hardhat run deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run deploy-sepolia.js --network sepolia"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +21,8 @@
     "@openzeppelin/contracts": "^5.6.1",
     "ethers": "^6.17.0",
     "hardhat": "^3.9.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
   }
 }
