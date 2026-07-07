@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Depósito en Garantía (Escrow) - BCY0010</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.17.0/dist/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2e37;
+    --text: #e8e9ec;
+    --muted: #9aa0ac;
+    --accent: #4f8cff;
+    --ok: #38c172;
+    --warn: #f4b740;
+    --err: #e05555;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px;
+  }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 14px; margin: 0 0 12px 0; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: none; }
+  .row span:first-child { color: var(--muted); }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+  button:disabled { background: #3a3e47; color: var(--muted); cursor: not-allowed; }
+  button.secondary { background: #2a2e37; }
+  button.danger { background: var(--err); }
+  input, textarea {
+    width: 100%;
+    background: #0f1115;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.Pendiente { background: rgba(244,183,64,0.15); color: var(--warn); }
+  .badge.Completado { background: rgba(56,193,114,0.15); color: var(--ok); }
+  .badge.Disputa { background: rgba(224,85,85,0.15); color: var(--err); }
+  .badge.Reembolsado { background: rgba(79,140,255,0.15); color: var(--accent); }
+  #log { font-size: 12px; color: var(--muted); white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
+  .role-tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(79,140,255,0.15); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Depósito en Garantía (Escrow)</h1>
+  <div class="subtitle">Fundamentos de Blockchain BCY0010 · Compraventa de activos físicos</div>
+
+  <div class="panel">
+    <h2>Conexión</h2>
+    <div id="connectionArea">
+      <label>Dirección del contrato desplegado</label>
+      <input id="contractAddressInput" placeholder="0x..." />
+      <button id="connectBtn">Conectar MetaMask</button>
+      <button id="loadContractBtn" class="secondary" disabled>Cargar contrato</button>
+    </div>
+    <div class="row"><span>Cuenta conectada</span><span class="mono" id="account">-</span></div>
+    <div class="row"><span>Rol detectado</span><span id="role"><span class="role-tag">Sin conectar</span></span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Participantes y términos del acuerdo</h2>
+    <div class="row"><span>Comprador</span><span class="mono" id="comprador">-</span></div>
+    <div class="row"><span>Vendedor</span><span class="mono" id="vendedor">-</span></div>
+    <div class="row"><span>Árbitro (owner)</span><span class="mono" id="arbitro">-</span></div>
+    <div class="row"><span>Precio del activo</span><span id="precio">-</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Estado actual</h2>
+    <div class="row"><span>Estado del contrato</span><span id="estado">-</span></div>
+    <div class="row"><span>Fondos depositados</span><span id="fondos">-</span></div>
+    <div class="row"><span>Balance en el contrato</span><span id="balance">-</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Operaciones (firma digital vía MetaMask)</h2>
+
+    <label>1. Comprador: depositar fondos (envía exactamente el precio del activo)</label>
+    <button id="depositarBtn" disabled>Depositar fondos</button>
+
+    <label style="margin-top: 12px;">2. Comprador: confirmar recepción del activo (libera fondos al vendedor)</label>
+    <button id="confirmarBtn" disabled>Confirmar recepción</button>
+
+    <label style="margin-top: 12px;">3. Comprador o vendedor: iniciar disputa</label>
+    <textarea id="motivoInput" rows="2" placeholder="Motivo de la disputa (sin datos personales sensibles)"></textarea>
+    <button id="disputaBtn" class="danger" disabled>Iniciar disputa</button>
+
+    <label style="margin-top: 12px;">4. Árbitro (owner): resolver disputa</label>
+    <button id="resolverVendedorBtn" class="secondary" disabled>Resolver a favor del vendedor</button>
+    <button id="resolverCompradorBtn" class="secondary" disabled>Resolver a favor del comprador (reembolso)</button>
+  </div>
+
+  <div class="panel">
+    <h2>Registro de eventos</h2>
+    <div id="log">Esperando conexión...</div>
+  </div>
+</div>
+
+<script>
+const CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_comprador","type":"address"},{"internalType":"address","name":"_vendedor","type":"address"},{"internalType":"address","name":"_arbitro","type":"address"},{"internalType":"uint256","name":"_precioActivo","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"denunciante","type":"address"},{"indexed":false,"internalType":"string","name":"motivo","type":"string"}],"name":"DisputaIniciada","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"arbitro","type":"address"},{"indexed":false,"internalType":"enum DepositoGarantia.Estado","name":"estadoFinal","type":"uint8"},{"indexed":false,"internalType":"address","name":"destinatarioFondos","type":"address"}],"name":"DisputaResuelta","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"comprador","type":"address"},{"indexed":false,"internalType":"uint256","name":"monto","type":"uint256"}],"name":"FondosDepositados","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"comprador","type":"address"},{"indexed":true,"internalType":"address","name":"vendedor","type":"address"},{"indexed":false,"internalType":"uint256","name":"montoLiberado","type":"uint256"}],"name":"RecepcionConfirmada","type":"event"},{"inputs":[],"name":"comprador","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"confirmarRecepcion","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"depositarFondos","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"estadoActual","outputs":[{"internalType":"enum DepositoGarantia.Estado","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"fondosDepositados","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"_motivo","type":"string"}],"name":"iniciarDisputa","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"precioActivo","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_favorVendedor","type":"bool"}],"name":"resolverDisputa","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"vendedor","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"stateMutability":"payable","type":"receive"}];
+
+const ESTADOS = ["Pendiente", "Completado", "Disputa", "Reembolsado"];
+
+let provider, signer, contract, account;
+
+const el = (id) => document.getElementById(id);
+const log = (msg) => {
+  const t = new Date().toLocaleTimeString();
+  el("log").textContent = `[${t}] ${msg}\n` + el("log").textContent;
+};
+
+el("connectBtn").addEventListener("click", async () => {
+  if (!window.ethereum) {
+    log("No se detectó MetaMask. Instálalo para continuar.");
+    return;
+  }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await provider.send("eth_requestAccounts", []);
+    account = accounts[0];
+    signer = await provider.getSigner();
+    el("account").textContent = account;
+    el("connectBtn").disabled = true;
+    el("loadContractBtn").disabled = false;
+    log("Wallet conectada: " + account);
+
+    window.ethereum.on("accountsChanged", () => window.location.reload());
+    window.ethereum.on("chainChanged", () => window.location.reload());
+  } catch (err) {
+    log("Error al conectar: " + err.message);
+  }
+});
+
+el("loadContractBtn").addEventListener("click", async () => {
+  const address = el("contractAddressInput").value.trim();
+  if (!ethers.isAddress(address)) {
+    log("Dirección de contrato inválida.");
+    return;
+  }
+  try {
+    contract = new ethers.Contract(address, CONTRACT_ABI, signer);
+    await refreshState();
+    attachEventListeners();
+    log("Contrato cargado en " + address);
+  } catch (err) {
+    log("Error al cargar el contrato: " + err.message);
+  }
+});
+
+async function refreshState() {
+  const [comprador, vendedor, arbitro, precio, estado, fondos, balance] = await Promise.all([
+    contract.comprador(),
+    contract.vendedor(),
+    contract.owner(),
+    contract.precioActivo(),
+    contract.estadoActual(),
+    contract.fondosDepositados(),
+    provider.getBalance(await contract.getAddress())
+  ]);
+
+  el("comprador").textContent = comprador;
+  el("vendedor").textContent = vendedor;
+  el("arbitro").textContent = arbitro;
+  el("precio").textContent = ethers.formatEther(precio) + " ETH";
+  el("balance").textContent = ethers.formatEther(balance) + " ETH";
+  el("fondos").textContent = fondos ? "Sí" : "No";
+
+  const estadoNombre = ESTADOS[Number(estado)];
+  el("estado").innerHTML = `<span class="badge ${estadoNombre}">${estadoNombre}</span>`;
+
+  let role = "Otro (solo lectura)";
+  const accLower = account.toLowerCase();
+  if (accLower === comprador.toLowerCase()) role = "Comprador";
+  else if (accLower === vendedor.toLowerCase()) role = "Vendedor";
+  else if (accLower === arbitro.toLowerCase()) role = "Árbitro (owner)";
+  el("role").innerHTML = `<span class="role-tag">${role}</span>`;
+
+  const esComprador = role === "Comprador";
+  const esVendedorOComprador = role === "Comprador" || role === "Vendedor";
+  const esArbitro = role === "Árbitro (owner)";
+
+  el("depositarBtn").disabled = !(esComprador && estadoNombre === "Pendiente" && !fondos);
+  el("confirmarBtn").disabled = !(esComprador && estadoNombre === "Pendiente" && fondos);
+  el("disputaBtn").disabled = !(esVendedorOComprador && estadoNombre === "Pendiente" && fondos);
+  el("resolverVendedorBtn").disabled = !(esArbitro && estadoNombre === "Disputa");
+  el("resolverCompradorBtn").disabled = !(esArbitro && estadoNombre === "Disputa");
+
+  window._precioActivo = precio;
+}
+
+function attachEventListeners() {
+  contract.on("FondosDepositados", (comprador, monto) => {
+    log(`Evento FondosDepositados: ${comprador} depositó ${ethers.formatEther(monto)} ETH`);
+    refreshState();
+  });
+  contract.on("RecepcionConfirmada", (comprador, vendedor, monto) => {
+    log(`Evento RecepcionConfirmada: ${ethers.formatEther(monto)} ETH liberados a ${vendedor}`);
+    refreshState();
+  });
+  contract.on("DisputaIniciada", (denunciante, motivo) => {
+    log(`Evento DisputaIniciada por ${denunciante}: ${motivo}`);
+    refreshState();
+  });
+  contract.on("DisputaResuelta", (arbitro, estadoFinal, destinatario) => {
+    log(`Evento DisputaResuelta: fondos van a ${destinatario}`);
+    refreshState();
+  });
+}
+
+el("depositarBtn").addEventListener("click", async () => {
+  try {
+    log("Enviando depósito...");
+    const tx = await contract.depositarFondos({ value: window._precioActivo });
+    await tx.wait();
+    log("Depósito confirmado.");
+    await refreshState();
+  } catch (err) {
+    log("Error al depositar: " + (err.reason || err.message));
+  }
+});
+
+el("confirmarBtn").addEventListener("click", async () => {
+  try {
+    log("Confirmando recepción...");
+    const tx = await contract.confirmarRecepcion();
+    await tx.wait();
+    log("Recepción confirmada, fondos liberados.");
+    await refreshState();
+  } catch (err) {
+    log("Error al confirmar: " + (err.reason || err.message));
+  }
+});
+
+el("disputaBtn").addEventListener("click", async () => {
+  const motivo = el("motivoInput").value.trim();
+  if (!motivo) {
+    log("Debes ingresar un motivo para la disputa.");
+    return;
+  }
+  try {
+    log("Iniciando disputa...");
+    const tx = await contract.iniciarDisputa(motivo);
+    await tx.wait();
+    log("Disputa iniciada.");
+    el("motivoInput").value = "";
+    await refreshState();
+  } catch (err) {
+    log("Error al iniciar disputa: " + (err.reason || err.message));
+  }
+});
+
+el("resolverVendedorBtn").addEventListener("click", async () => {
+  try {
+    log("Resolviendo disputa a favor del vendedor...");
+    const tx = await contract.resolverDisputa(true);
+    await tx.wait();
+    log("Disputa resuelta a favor del vendedor.");
+    await refreshState();
+  } catch (err) {
+    log("Error al resolver: " + (err.reason || err.message));
+  }
+});
+
+el("resolverCompradorBtn").addEventListener("click", async () => {
+  try {
+    log("Resolviendo disputa a favor del comprador (reembolso)...");
+    const tx = await contract.resolverDisputa(false);
+    await tx.wait();
+    log("Disputa resuelta, comprador reembolsado.");
+    await refreshState();
+  } catch (err) {
+    log("Error al resolver: " + (err.reason || err.message));
+  }
+});
+</script>
+</body>
+</html>
