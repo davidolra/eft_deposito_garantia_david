@@ -1,0 +1,23 @@
+{
+  "name": "eft_deposito_garantia",
+  "version": "1.0.0",
+  "description": "Este repositorio contiene la plantilla base de código (*boilerplate*) para el desarrollo del **Encargo Grupal y Defensa Individual de la Evaluación Final Transversal (EFT)** del curso optativo **Fundamentos de Blockchain (BCY0010)** de Duoc UC.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat run test_simulation.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.13",
+    "@openzeppelin/contracts": "^5.6.1",
+    "ethers": "^6.17.0",
+    "hardhat": "^3.9.0"
+  }
+}
