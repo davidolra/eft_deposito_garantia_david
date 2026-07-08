@@ -134,6 +134,7 @@
 const CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_comprador","type":"address"},{"internalType":"address","name":"_vendedor","type":"address"},{"internalType":"address","name":"_arbitro","type":"address"},{"internalType":"uint256","name":"_precioActivo","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"denunciante","type":"address"},{"indexed":false,"internalType":"string","name":"motivo","type":"string"}],"name":"DisputaIniciada","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"arbitro","type":"address"},{"indexed":false,"internalType":"enum DepositoGarantia.Estado","name":"estadoFinal","type":"uint8"},{"indexed":false,"internalType":"address","name":"destinatarioFondos","type":"address"}],"name":"DisputaResuelta","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"comprador","type":"address"},{"indexed":false,"internalType":"uint256","name":"monto","type":"uint256"}],"name":"FondosDepositados","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"comprador","type":"address"},{"indexed":true,"internalType":"address","name":"vendedor","type":"address"},{"indexed":false,"internalType":"uint256","name":"montoLiberado","type":"uint256"}],"name":"RecepcionConfirmada","type":"event"},{"inputs":[],"name":"comprador","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"confirmarRecepcion","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"depositarFondos","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"estadoActual","outputs":[{"internalType":"enum DepositoGarantia.Estado","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"fondosDepositados","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"_motivo","type":"string"}],"name":"iniciarDisputa","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"precioActivo","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_favorVendedor","type":"bool"}],"name":"resolverDisputa","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"vendedor","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"stateMutability":"payable","type":"receive"}];
 
 const ESTADOS = ["Pendiente", "Completado", "Disputa", "Reembolsado"];
+const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111 en hexadecimal
 
 let provider, signer, contract, account;
 
@@ -152,6 +153,34 @@ el("connectBtn").addEventListener("click", async () => {
     provider = new ethers.BrowserProvider(window.ethereum);
     const accounts = await provider.send("eth_requestAccounts", []);
     account = accounts[0];
+
+    const currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+    if (currentChainId !== SEPOLIA_CHAIN_ID) {
+      log("Red incorrecta detectada, solicitando cambio a Sepolia...");
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: SEPOLIA_CHAIN_ID }]
+        });
+      } catch (switchErr) {
+        if (switchErr.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: SEPOLIA_CHAIN_ID,
+              chainName: "Sepolia",
+              nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://rpc.sepolia.org"],
+              blockExplorerUrls: ["https://sepolia.etherscan.io"]
+            }]
+          });
+        } else {
+          log("No se pudo cambiar de red automáticamente: " + switchErr.message);
+        }
+      }
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+
     signer = await provider.getSigner();
     el("account").textContent = account;
     el("connectBtn").disabled = true;
