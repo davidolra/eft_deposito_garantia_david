@@ -46,6 +46,11 @@ async function main() {
   console.log("\nVerificalo en el explorador:");
   console.log(`https://sepolia.etherscan.io/address/${contractAddress}`);
   console.log("\nPega esta direccion en el campo 'Direccion del contrato desplegado' de frontend/index.html");
+  console.log("\nPara verificar el codigo fuente en Etherscan, corre:");
+  console.log(
+    `npx hardhat verify --network sepolia ${contractAddress} "${comprador}" "${vendedor}" "${arbitro}" "${precioActivo}"`
+  );
+  console.log("(Necesitas ETHERSCAN_API_KEY configurado en tu .env)");
   console.log("====================================================");
 }
 
